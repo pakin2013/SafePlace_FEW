@@ -627,11 +627,11 @@
             กำลังเชื่อมต่อบริการค้นหาสถานที่...
           </p>
           <div class="list-heading">
-            <h2>ศูนย์พักพิงใกล้จุดที่เลือก</h2>
+            <h2>ผลค้นหาสถานที่ที่อาจเกี่ยวข้อง</h2>
             <span class="result-count" id="result-count" aria-live="polite"></span>
           </div>
           <p class="selection-hint" id="selection-hint">
-            คลิกแผนที่หรือเลื่อนหมุดเพื่อค้นหาศูนย์ใกล้ที่สุดไม่เกิน 5 แห่ง
+            ผลลัพธ์เรียงตามระยะเส้นตรงจากตำแหน่งที่เลือก
           </p>
           <div class="shelter-list" id="shelter-list"></div>
         </aside>
@@ -656,6 +656,7 @@
         <span>
           ผลจาก Google Maps อาจไม่ใช่ศูนย์อพยพทางการหรือยังเปิดให้บริการ
           โปรดยืนยันข้อมูลกับหน่วยงานในพื้นที่ก่อนเดินทาง
+          แสดงผลทั้งหมดที่บริการค้นหาส่งกลับมา แต่ผลอาจไม่ครบทุกสถานที่และมีรายการที่ไม่เกี่ยวข้องปะปน
           OSRM demo server เหมาะสำหรับทดลองเท่านั้นและอาจจำกัดการใช้งาน
           เบราว์เซอร์จะถามสิทธิ์ตำแหน่งเมื่อกดปุ่มระบุตำแหน่ง
           การค้นหาส่งพิกัดจุดที่เลือกผ่าน Worker ไปยัง SerpApi/Google Maps
@@ -888,8 +889,7 @@
           }
           shelters = result.shelters
             .map(normalizeShelterResult)
-            .filter(Boolean)
-            .slice(0, 5);
+            .filter(Boolean);
           proxyStatus.textContent = `เชื่อมต่อแล้ว · พบ ${shelters.length} แห่ง`;
           connectionBadgeText.textContent = "ผลค้นหาจาก Google Maps";
         } catch (error) {
@@ -1098,8 +1098,7 @@
             ...shelter,
             distanceMeters: distanceBetween(selectedLocation, shelter),
           }))
-          .sort((first, second) => first.distanceMeters - second.distanceMeters)
-          .slice(0, 5);
+          .sort((first, second) => first.distanceMeters - second.distanceMeters);
 
         listElement.replaceChildren();
         countElement.textContent = `${visible.length} แห่ง`;
@@ -1153,7 +1152,7 @@
           empty.textContent = searchError
             ? searchError
             : isSearching
-                ? "กำลังค้นหาสถานที่ใกล้จุดที่เลือก..."
+                ? "กำลังค้นหาสถานที่ที่อาจเกี่ยวข้อง..."
                 : shelters.length === 0
                   ? "ไม่พบผลการค้นหาใกล้ตำแหน่งนี้"
                   : "ไม่พบสถานที่ที่ตรงกับการค้นหา";

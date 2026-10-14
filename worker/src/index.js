@@ -121,7 +121,7 @@ export default {
     const searchUrl = new URL("https://serpapi.com/search.json");
     searchUrl.searchParams.set("engine", "google_maps");
     searchUrl.searchParams.set("type", "search");
-    searchUrl.searchParams.set("q", "ศูนย์พักพิงฉุกเฉิน");
+    searchUrl.searchParams.set("q", "ศูนย์พักพิง");
     searchUrl.searchParams.set("hl", "th");
     searchUrl.searchParams.set("gl", "th");
     searchUrl.searchParams.set(
@@ -165,15 +165,14 @@ export default {
       ? providerData.local_results
       : [])
       .map(shelterFromResult)
-      .filter(Boolean)
-      .slice(0, 5);
+      .filter(Boolean);
 
     return jsonResponse(
       {
         shelters,
         source: "Google Maps via SerpApi",
         verified: false,
-        notice: "ผลการค้นหาไม่ได้ยืนยันว่าเป็นศูนย์พักพิงทางการหรือเปิดให้บริการ",
+        notice: "แสดงผลทั้งหมดที่ Google Maps ส่งกลับมาในคำค้นนี้ แต่รายการอาจไม่ครบและไม่ได้ยืนยันว่าเป็นศูนย์พักพิงทางการหรือเปิดให้บริการ",
       },
       200,
       origin
