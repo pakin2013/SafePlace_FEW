@@ -5,6 +5,10 @@ const allowedOrigins = new Set([
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 ]);
+const songkhlaShelterCsvUrl =
+  "https://songkhla.gdcatalog.go.th/dataset/59cca4fd-5bce-42f3-b007-42814a8f0604/resource/724184f4-7602-4335-b58f-2da50b2a3dc8/download/collective-centre.csv";
+const songkhlaDatasetUrl =
+  "https://data.go.th/dataset/59cca4fd-5bce-42f3-b007-42814a8f0604";
 
 function jsonResponse(body, status, origin) {
   const headers = new Headers({
@@ -65,7 +69,143 @@ function shelterFromResult(result, index) {
     lat,
     lng,
     mapUrl,
+    sourceType: "google-maps",
+    source: "Google Maps via SerpApi",
   };
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let value = "";
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === '"' && quoted && text[index + 1] === '"') {
+      value += '"';
+      index += 1;
+    } else if (character === '"') {
+      quoted = !quoted;
+    } else if (character === "," && !quoted) {
+      row.push(value);
+      value = "";
+    } else if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && text[index + 1] === "\n") {
+        index += 1;
+      }
+      row.push(value);
+      value = "";
+      if (row.some((cell) => cell.trim())) {
+        rows.push(row);
+      }
+      row = [];
+    } else {
+      value += character;
+    }
+  }
+
+  if (value || row.length) {
+    row.push(value);
+    rows.push(row);
+  }
+  return rows;
+}
+
+function distanceMeters(first, second) {
+  const toRadians = (degrees) => (degrees * Math.PI) / 180;
+  const latitudeDifference = toRadians(second.lat - first.lat);
+  const longitudeDifference = toRadians(second.lng - first.lng);
+  const firstLatitude = toRadians(first.lat);
+  const secondLatitude = toRadians(second.lat);
+  const haversine =
+    Math.sin(latitudeDifference / 2) ** 2 +
+    Math.cos(firstLatitude) *
+      Math.cos(secondLatitude) *
+      Math.sin(longitudeDifference / 2) ** 2;
+  return 6371000 * 2 * Math.asin(Math.sqrt(haversine));
+}
+
+async function loadNearbyOfficialSongkhlaShelters(location) {
+  const csvResponse = await fetch(songkhlaShelterCsvUrl, {
+    cf: { cacheEverything: true, cacheTtl: 3600 },
+    headers: { Accept: "text/csv" },
+  });
+  if (!csvResponse.ok) {
+    throw new Error(`ข้อมูลศูนย์พักพิงจังหวัดสงขลาตอบกลับ ${csvResponse.status}`);
+  }
+
+  const rows = parseCsv((await csvResponse.text()).replace(/^\uFEFF/, ""));
+  const headers = rows.shift()?.map((header) => header.trim());
+  if (!headers) {
+    throw new Error("ไฟล์ข้อมูลศูนย์พักพิงจังหวัดสงขลาไม่มีหัวตาราง");
+  }
+  const column = (name) => headers.indexOf(name);
+  const columns = {
+    year: column("ปี"),
+    province: column("จังหวัด"),
+    district: column("อำเภอ"),
+    subdistrict: column("ตำบล"),
+    village: column("หมู่บ้าน/ชุมชน(จำนวน)"),
+    name: column("ชื่อศูนย์พักพิง"),
+    capacity: column("จำนวนคนที่รองรับได้"),
+    phone: column("หมายเลขโทรศัพท์"),
+    lat: column("LAT"),
+    lng: column("LONG"),
+  };
+  if (Object.values(columns).some((index) => index < 0)) {
+    throw new Error("รูปแบบคอลัมน์ข้อมูลศูนย์พักพิงจังหวัดสงขลาเปลี่ยนไป");
+  }
+
+  return rows
+    .map((cells, index) => {
+      const lat = Number(cells[columns.lat]);
+      const lng = Number(cells[columns.lng]);
+      const name = (cells[columns.name] || "").trim();
+      if (
+        (cells[columns.province] || "").trim() !== "สงขลา" ||
+        !name ||
+        !Number.isFinite(lat) ||
+        !Number.isFinite(lng) ||
+        lat < -90 ||
+        lat > 90 ||
+        lng < -180 ||
+        lng > 180
+      ) {
+        return null;
+      }
+
+      const locationDetails = [
+        cells[columns.subdistrict],
+        cells[columns.district],
+        cells[columns.province],
+      ]
+        .map((part) => (part || "").replace(/\s+/g, " ").trim())
+        .filter(Boolean);
+      const shelter = {
+        id: `songkhla-${cells[columns.year]}-${lat}-${lng}-${index}`,
+        name,
+        address: locationDetails.join(", "),
+        type: "ศูนย์พักพิงชั่วคราว",
+        lat,
+        lng,
+        mapUrl: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+        sourceType: "official-dataset",
+        source: "สำนักงานป้องกันและบรรเทาสาธารณภัยจังหวัดสงขลา",
+        sourceUrl: songkhlaDatasetUrl,
+        dataYear: (cells[columns.year] || "").trim(),
+        capacity: (cells[columns.capacity] || "").trim(),
+        phone: (cells[columns.phone] || "").trim(),
+        village: (cells[columns.village] || "").replace(/\s+/g, " ").trim(),
+      };
+
+      return {
+        ...shelter,
+        distance: distanceMeters(location, shelter),
+      };
+    })
+    .filter((shelter) => shelter && shelter.distance <= 10000)
+    .map(({ distance, ...shelter }) => shelter);
 }
 
 export default {
@@ -161,18 +301,50 @@ export default {
       return jsonResponse({ error: "SerpApi ค้นหาไม่สำเร็จ กรุณาตรวจ Secret และโควตา" }, 502, origin);
     }
 
-    const shelters = (Array.isArray(providerData.local_results)
+    let googleResults = (Array.isArray(providerData.local_results)
       ? providerData.local_results
       : [])
       .map(shelterFromResult)
       .filter(Boolean);
+    let officialSongkhlaShelters = [];
+    if (lat >= 6.2 && lat <= 7.9 && lng >= 99.5 && lng <= 101.5) {
+      try {
+        officialSongkhlaShelters = await loadNearbyOfficialSongkhlaShelters({ lat, lng });
+      } catch (error) {
+        return jsonResponse(
+          {
+            error:
+              error instanceof Error
+                ? `โหลดข้อมูลศูนย์พักพิงทางการไม่สำเร็จ: ${error.message}`
+                : "โหลดข้อมูลศูนย์พักพิงทางการไม่สำเร็จ",
+          },
+          502,
+          origin
+        );
+      }
+      googleResults = googleResults.filter(
+        (googleResult) =>
+          !officialSongkhlaShelters.some(
+            (officialShelter) =>
+              googleResult.name.toLocaleLowerCase("th") ===
+                officialShelter.name.toLocaleLowerCase("th") ||
+              distanceMeters(googleResult, officialShelter) < 100
+          )
+      );
+    }
+    const shelters = [...officialSongkhlaShelters, ...googleResults];
 
     return jsonResponse(
       {
         shelters,
-        source: "Google Maps via SerpApi",
+        sources: [
+          "Google Maps via SerpApi",
+          ...(officialSongkhlaShelters.length
+            ? ["บัญชีศูนย์พักพิงชั่วคราวจังหวัดสงขลา ปี 2568"]
+            : []),
+        ],
         verified: false,
-        notice: "แสดงผลทั้งหมดที่ Google Maps ส่งกลับมาในคำค้นนี้ แต่รายการอาจไม่ครบและไม่ได้ยืนยันว่าเป็นศูนย์พักพิงทางการหรือเปิดให้บริการ",
+        notice: "ผลจาก Google Maps ไม่ใช่ทะเบียนทางการ ส่วนข้อมูลจังหวัดสงขลามาจากบัญชีศูนย์พักพิงปี 2568 และไม่ได้ยืนยันสถานะเปิดให้บริการในปัจจุบัน",
       },
       200,
       origin

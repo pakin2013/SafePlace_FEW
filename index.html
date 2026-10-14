@@ -350,6 +350,11 @@
         content: "";
       }
 
+      .status.official {
+        color: #276649;
+        background: #e7f4eb;
+      }
+
       .card-address {
         margin: 7px 0 10px;
         color: var(--muted);
@@ -517,6 +522,10 @@
 
       .custom-marker.full {
         background: #c48029;
+      }
+
+      .custom-marker.official {
+        background: #246b4b;
       }
 
       .notice {
@@ -727,6 +736,8 @@
         <span>
           ผลจาก Google Maps อาจไม่ใช่ศูนย์อพยพทางการหรือยังเปิดให้บริการ
           โปรดยืนยันข้อมูลกับหน่วยงานในพื้นที่ก่อนเดินทาง
+          เมื่อเลือกพื้นที่สงขลา แผนที่จะแสดงจุดในบัญชีศูนย์พักพิงจังหวัดปี 2568 จาก ปภ.จังหวัดด้วย
+          ข้อมูลดังกล่าวไม่ยืนยันสถานะเปิดหรือความพร้อมในปัจจุบัน
           แสดงผลทั้งหมดที่บริการค้นหาส่งกลับมา แต่ผลอาจไม่ครบทุกสถานที่และมีรายการที่ไม่เกี่ยวข้องปะปน
           OSRM demo server เหมาะสำหรับทดลองเท่านั้นและอาจจำกัดการใช้งาน
           เบราว์เซอร์จะถามสิทธิ์ตำแหน่งเมื่อกดปุ่มระบุตำแหน่ง
@@ -738,7 +749,9 @@
 
     <footer>
       แผนที่ © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>
-      · สถานที่จาก SerpApi/Google Maps · เส้นทางโดย OSRM demo ·
+      · สถานที่จาก SerpApi/Google Maps ·
+      ศูนย์พักพิงสงขลาจาก <a href="https://data.go.th/dataset/59cca4fd-5bce-42f3-b007-42814a8f0604" target="_blank" rel="noreferrer">บัญชีข้อมูลทางการ ปี 2568</a> ·
+      เส้นทางโดย OSRM demo ·
       สร้างด้วย <a href="https://leafletjs.com/" target="_blank" rel="noreferrer">Leaflet</a>
     </footer>
 
@@ -874,17 +887,37 @@
 
         [
           shelter.address || "ไม่มีข้อมูลที่อยู่",
-          shelter.type || "สถานะการเป็นศูนย์พักพิงยังไม่ยืนยัน",
+          shelter.type || "ไม่ระบุประเภทสถานที่",
           shelter.keywords.length
             ? `Keyword: ${shelter.keywords.join(", ")}`
             : "",
-          "ข้อมูลจาก Google Maps ผ่าน SerpApi — โปรดยืนยันก่อนเดินทาง",
+          shelter.sourceType === "official-dataset"
+            ? `ข้อมูลบัญชีศูนย์พักพิง ปี ${shelter.dataYear} — ${shelter.source} (ไม่ยืนยันสถานะเปิดปัจจุบัน)`
+            : "ข้อมูลจาก Google Maps ผ่าน SerpApi — ต้องยืนยันก่อนเดินทาง",
+          shelter.village ? `ชุมชนที่รองรับ: ${shelter.village}` : "",
+          shelter.capacity ? `ความจุที่ระบุ: ${shelter.capacity} คน` : "",
         ].filter(Boolean).forEach((text) => {
           const line = document.createElement("div");
           line.className = "popup-line";
           line.textContent = text;
           content.append(line);
         });
+
+        if (shelter.phone) {
+          const phone = document.createElement("a");
+          phone.href = `tel:${shelter.phone.replace(/[^\d+]/g, "")}`;
+          phone.textContent = `โทร ${shelter.phone}`;
+          content.append(phone);
+        }
+
+        if (shelter.sourceUrl) {
+          const sourceLink = document.createElement("a");
+          sourceLink.href = shelter.sourceUrl;
+          sourceLink.target = "_blank";
+          sourceLink.rel = "noreferrer";
+          sourceLink.textContent = "เปิดชุดข้อมูลทางการ";
+          content.append(sourceLink);
+        }
 
         if (shelter.mapUrl) {
           const mapLink = document.createElement("a");
@@ -989,6 +1022,17 @@
           lat,
           lng,
           mapUrl,
+          sourceType: item.sourceType === "official-dataset" ? "official-dataset" : "google-maps",
+          source: typeof item.source === "string" ? item.source : "Google Maps via SerpApi",
+          sourceUrl:
+            typeof item.sourceUrl === "string" &&
+            item.sourceUrl.startsWith("https://data.go.th/")
+              ? item.sourceUrl
+              : "",
+          dataYear: typeof item.dataYear === "string" ? item.dataYear : "",
+          capacity: typeof item.capacity === "string" ? item.capacity : "",
+          phone: typeof item.phone === "string" ? item.phone : "",
+          village: typeof item.village === "string" ? item.village : "",
         };
       }
 
@@ -1034,7 +1078,12 @@
               keywords: getShelterKeywords(shelter),
             }));
           proxyStatus.textContent = `เชื่อมต่อแล้ว · พบ ${shelters.length} แห่ง`;
-          connectionBadgeText.textContent = "ผลค้นหาจาก Google Maps";
+          const officialShelter = shelters.find(
+            (shelter) => shelter.sourceType === "official-dataset"
+          );
+          connectionBadgeText.textContent = officialShelter
+            ? `รวมข้อมูลทางการ · ปี ${officialShelter.dataYear || "2568"}`
+            : "ผลค้นหาจาก Google Maps";
         } catch (error) {
           if (error.name === "AbortError") {
             return;
@@ -1217,7 +1266,7 @@
       function createMarker(shelter) {
         const icon = L.divIcon({
           className: "",
-          html: '<div class="custom-marker"><span>+</span></div>',
+          html: `<div class="custom-marker ${shelter.sourceType === "official-dataset" ? "official" : ""}"><span>+</span></div>`,
           iconSize: [38, 38],
           iconAnchor: [19, 35],
           popupAnchor: [0, -32],
@@ -1316,8 +1365,11 @@
           title.className = "card-title";
           title.textContent = shelter.name;
           const status = document.createElement("span");
-          status.className = "status";
-          status.textContent = "ต้องยืนยัน";
+          status.className = `status ${shelter.sourceType === "official-dataset" ? "official" : ""}`;
+          status.textContent =
+            shelter.sourceType === "official-dataset"
+              ? `บัญชีทางการ · ${shelter.dataYear}`
+              : "ต้องยืนยัน";
           titleRow.append(title, status);
 
           const address = document.createElement("p");
@@ -1336,6 +1388,11 @@
           const distance = document.createElement("span");
           distance.textContent = `ห่าง ${formatDistance(shelter.distanceMeters)} (เส้นตรง)`;
           meta.append(distance);
+          if (shelter.capacity) {
+            const capacity = document.createElement("span");
+            capacity.textContent = `รองรับ ${shelter.capacity} คน`;
+            meta.append(capacity);
+          }
           card.append(titleRow, address);
           if (shelter.keywords.length) {
             card.append(keywords);
