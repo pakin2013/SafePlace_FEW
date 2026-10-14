@@ -738,6 +738,7 @@
           โปรดยืนยันข้อมูลกับหน่วยงานในพื้นที่ก่อนเดินทาง
           เมื่อเลือกพื้นที่สงขลา แผนที่จะแสดงจุดในบัญชีศูนย์พักพิงจังหวัดปี 2568 จาก ปภ.จังหวัดด้วย
           ข้อมูลดังกล่าวไม่ยืนยันสถานะเปิดหรือความพร้อมในปัจจุบัน
+          แผนที่จำกัดการเลื่อนและเลือกตำแหน่งไว้ในกรอบประเทศไทยโดยประมาณ แต่พื้นที่ประเทศเพื่อนบ้านอาจยังเห็นบริเวณขอบ
           แสดงผลทั้งหมดที่บริการค้นหาส่งกลับมา แต่ผลอาจไม่ครบทุกสถานที่และมีรายการที่ไม่เกี่ยวข้องปะปน
           OSRM demo server เหมาะสำหรับทดลองเท่านั้นและอาจจำกัดการใช้งาน
           เบราว์เซอร์จะถามสิทธิ์ตำแหน่งเมื่อกดปุ่มระบุตำแหน่ง
@@ -773,9 +774,13 @@
       const routeLayer = L.geoJSON(null, {
         style: { color: "#176b51", opacity: 0.9, weight: 6 },
       });
+      const thailandBounds = L.latLngBounds(
+        [5.5, 97.0],
+        [20.6, 106.0]
+      );
       const defaultLocation = L.latLng(13.7563, 100.5231);
       const map = L.map("map", {
-        minZoom: 2,
+        minZoom: 5,
         maxZoom: 22,
         zoomSnap: 0.25,
         zoomDelta: 0.5,
@@ -784,7 +789,9 @@
         doubleClickZoom: true,
         keyboard: true,
         zoomControl: false,
-      }).setView(defaultLocation, 12);
+        maxBounds: thailandBounds,
+        maxBoundsViscosity: 1,
+      }).fitBounds(thailandBounds, { padding: [16, 16] });
       let selectedLocation = defaultLocation;
       const selectedLocationMarker = L.marker(selectedLocation, {
         draggable: true,
@@ -1072,7 +1079,10 @@
           }
           shelters = result.shelters
             .map(normalizeShelterResult)
-            .filter(Boolean)
+            .filter(
+              (shelter) =>
+                shelter && thailandBounds.contains([shelter.lat, shelter.lng])
+            )
             .map((shelter) => ({
               ...shelter,
               keywords: getShelterKeywords(shelter),
@@ -1113,6 +1123,12 @@
       }
 
       function setSelectedLocation(location, { zoom = false } = {}) {
+        if (!thailandBounds.contains(location)) {
+          selectedLocationMarker.setLatLng(selectedLocation);
+          selectionHint.textContent =
+            "เลือกตำแหน่งได้เฉพาะภายในประเทศไทย";
+          return false;
+        }
         if (
           location.lat !== selectedLocation.lat ||
           location.lng !== selectedLocation.lng
@@ -1148,6 +1164,7 @@
           `จุดที่เลือก ${selectedLocation.lat.toFixed(5)}, ${selectedLocation.lng.toFixed(5)} · ` +
           "ระยะทางในรายการเป็นระยะเส้นตรงโดยประมาณ";
         renderShelters();
+        return true;
       }
 
       async function requestShelterRoute(shelter) {
@@ -1459,10 +1476,15 @@
               if (userMarker) {
                 map.removeLayer(userMarker);
               }
-              setSelectedLocation(
+              const isInThailand = setSelectedLocation(
                 { lat: userLocation[0], lng: userLocation[1] },
                 { zoom: true }
               );
+              if (!isInThailand) {
+                window.alert("ตำแหน่งปัจจุบันอยู่นอกประเทศไทย");
+                locateButton.disabled = false;
+                return;
+              }
               userMarker = L.circleMarker(userLocation, {
                 radius: 8,
                 color: "#fff",
