@@ -247,6 +247,13 @@
         font-size: 14px;
       }
 
+      .selection-hint {
+        margin: 0 20px 10px;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.5;
+      }
+
       .result-count {
         color: var(--muted);
         font-size: 12px;
@@ -647,9 +654,12 @@
             </div>
           </div>
           <div class="list-heading">
-            <h2>สถานที่ใกล้เคียง</h2>
+            <h2>ใกล้จุดที่เลือก</h2>
             <span class="result-count" id="result-count" aria-live="polite"></span>
           </div>
+          <p class="selection-hint" id="selection-hint">
+            คลิกแผนที่หรือเลื่อนหมุดเพื่อเลือกตำแหน่ง แล้วดูศูนย์พักพิงใกล้ที่สุด 5 แห่ง
+          </p>
           <div class="shelter-list" id="shelter-list"></div>
         </aside>
 
@@ -758,10 +768,17 @@
       const routeLayer = L.geoJSON(null, {
         style: { color: "#176b51", opacity: 0.9, weight: 6 },
       });
+      const defaultLocation = L.latLng(13.7563, 100.5231);
       const map = L.map("map", {
         scrollWheelZoom: false,
         zoomControl: false,
-      }).setView([13.7563, 100.5231], 12);
+      }).setView(defaultLocation, 12);
+      let selectedLocation = defaultLocation;
+      const selectedLocationMarker = L.marker(selectedLocation, {
+        draggable: true,
+        title: "จุดที่เลือก — ลากหมุดหรือคลิกแผนที่เพื่อย้าย",
+        zIndexOffset: 1000,
+      }).bindTooltip("จุดที่เลือก", { direction: "top", offset: [0, -30] });
       let userMarker = null;
       let activeRouteController = null;
 
@@ -771,10 +788,12 @@
       }).addTo(map);
       markerLayer.addTo(map);
       routeLayer.addTo(map);
+      selectedLocationMarker.addTo(map);
       L.control.zoom({ position: "topright" }).addTo(map);
 
       const listElement = document.getElementById("shelter-list");
       const countElement = document.getElementById("result-count");
+      const selectionHint = document.getElementById("selection-hint");
       const searchElement = document.getElementById("search");
       let activeFilter = "all";
 
@@ -799,7 +818,7 @@
         const directions = document.createElement("button");
         directions.className = "route-action";
         directions.type = "button";
-        directions.textContent = "แสดงเส้นทางจากตำแหน่งของฉัน";
+        directions.textContent = "แสดงเส้นทางจากจุดที่เลือก";
         directions.addEventListener("click", () => requestShelterRoute(shelter));
         content.append(directions);
 
@@ -812,36 +831,54 @@
         routeSteps.replaceChildren();
       }
 
-      function getCurrentPosition() {
-        return new Promise((resolve, reject) => {
-          if (!navigator.geolocation) {
-            reject(new Error("เบราว์เซอร์นี้ไม่รองรับการระบุตำแหน่ง"));
-            return;
-          }
-          navigator.geolocation.getCurrentPosition(
-            resolve,
-            (error) => {
-              const messages = {
-                1: "ไม่ได้รับอนุญาตให้เข้าถึงตำแหน่ง",
-                2: "ไม่สามารถระบุตำแหน่งได้ในขณะนี้",
-                3: "การค้นหาตำแหน่งใช้เวลานานเกินไป",
-              };
-              reject(new Error(messages[error.code] || "เกิดข้อผิดพลาดขณะค้นหาตำแหน่ง"));
-            },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-          );
-        });
-      }
-
       function formatDistance(meters) {
         return meters >= 1000
           ? `${(meters / 1000).toFixed(1)} กม.`
           : `${Math.round(meters)} ม.`;
       }
 
+      function distanceBetween(first, second) {
+        const earthRadiusMeters = 6371000;
+        const toRadians = (degrees) => (degrees * Math.PI) / 180;
+        const latitudeDifference = toRadians(second.lat - first.lat);
+        const longitudeDifference = toRadians(second.lng - first.lng);
+        const firstLatitude = toRadians(first.lat);
+        const secondLatitude = toRadians(second.lat);
+        const haversine =
+          Math.sin(latitudeDifference / 2) ** 2 +
+          Math.cos(firstLatitude) *
+            Math.cos(secondLatitude) *
+            Math.sin(longitudeDifference / 2) ** 2;
+        return 2 * earthRadiusMeters * Math.asin(Math.sqrt(haversine));
+      }
+
+      function setSelectedLocation(location, { zoom = false } = {}) {
+        if (
+          location.lat !== selectedLocation.lat ||
+          location.lng !== selectedLocation.lng
+        ) {
+          routeLayer.clearLayers();
+          routePanel.hidden = true;
+          if (activeRouteController) {
+            activeRouteController.abort();
+            activeRouteController = null;
+          }
+        }
+        selectedLocation = L.latLng(location.lat, location.lng);
+        selectedLocationMarker.setLatLng(selectedLocation);
+        if (zoom) {
+          map.setView(selectedLocation, 14);
+        }
+        const previousHint = selectionHint;
+        previousHint.textContent =
+          `จุดที่เลือก ${selectedLocation.lat.toFixed(5)}, ${selectedLocation.lng.toFixed(5)} · ` +
+          "ระยะทางในรายการเป็นระยะเส้นตรงโดยประมาณ";
+        renderShelters();
+      }
+
       async function requestShelterRoute(shelter) {
         const sharingConsent = window.confirm(
-          "เบราว์เซอร์จะขอสิทธิ์ตำแหน่งของคุณ และส่งพิกัดให้ OSRM demo server (ผู้ให้บริการภายนอก) เพื่อคำนวณเส้นทาง ต้องการดำเนินการต่อหรือไม่?"
+          "พิกัดจุดที่คุณเลือกจะถูกส่งไปยัง OSRM demo server (ผู้ให้บริการภายนอก) เพื่อคำนวณเส้นทาง ต้องการดำเนินการต่อหรือไม่?"
         );
         if (!sharingConsent) {
           return;
@@ -853,16 +890,14 @@
         const controller = new AbortController();
         activeRouteController = controller;
         routeLayer.clearLayers();
-        setRouteMessage("กำลังขอตำแหน่งของคุณ...");
+        setRouteMessage("กำลังคำนวณเส้นทาง...");
         try {
-          const position = await getCurrentPosition();
-          const originLat = position.coords.latitude;
-          const originLng = position.coords.longitude;
+          const originLat = selectedLocation.lat;
+          const originLng = selectedLocation.lng;
           const requestUrl =
             `https://router.project-osrm.org/route/v1/driving/` +
             `${originLng},${originLat};${shelter.lng},${shelter.lat}` +
             "?overview=full&geometries=geojson&steps=true";
-          setRouteMessage("กำลังคำนวณเส้นทาง...");
           const response = await fetch(requestUrl, {
             signal: controller.signal,
           });
@@ -977,7 +1012,13 @@
               .includes(query);
           const matchesStatus = activeFilter === "all" || shelter.status === activeFilter;
           return matchesQuery && matchesStatus;
-        });
+        })
+          .map((shelter) => ({
+            ...shelter,
+            distanceMeters: distanceBetween(selectedLocation, shelter),
+          }))
+          .sort((first, second) => first.distanceMeters - second.distanceMeters)
+          .slice(0, 5);
 
         listElement.replaceChildren();
         countElement.textContent = `${visible.length} แห่ง`;
@@ -1007,7 +1048,9 @@
           capacity.textContent = shelter.capacity;
           const updated = document.createElement("span");
           updated.textContent = shelter.updated;
-          meta.append(capacity, updated);
+          const distance = document.createElement("span");
+          distance.textContent = `ห่าง ${formatDistance(shelter.distanceMeters)} (เส้นตรง)`;
+          meta.append(distance, capacity);
           card.append(titleRow, address, meta);
           card.addEventListener("click", () => {
             map.setView([shelter.lat, shelter.lng], 15);
@@ -1048,6 +1091,10 @@
       });
 
       searchElement.addEventListener("input", renderShelters);
+      map.on("click", (event) => setSelectedLocation(event.latlng));
+      selectedLocationMarker.on("dragend", (event) => {
+        setSelectedLocation(event.target.getLatLng());
+      });
       renderShelters();
 
       function initializeLocationControl() {
@@ -1070,7 +1117,10 @@
               if (userMarker) {
                 map.removeLayer(userMarker);
               }
-              map.setView(userLocation, 14);
+              setSelectedLocation(
+                { lat: userLocation[0], lng: userLocation[1] },
+                { zoom: true }
+              );
               userMarker = L.circleMarker(userLocation, {
                 radius: 8,
                 color: "#fff",
