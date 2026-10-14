@@ -207,6 +207,57 @@
         box-shadow: 0 0 0 3px rgb(23 107 81 / 10%);
       }
 
+      .keyword-filter {
+        padding-top: 14px;
+      }
+
+      .keyword-filter-heading {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+
+      .keyword-filter-heading strong {
+        font-size: 12px;
+      }
+
+      .keyword-filter-heading span {
+        color: var(--muted);
+        font-size: 10px;
+      }
+
+      .keyword-chips,
+      .card-keywords {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .keyword-chip {
+        min-height: 29px;
+        padding: 4px 9px;
+        color: #526158;
+        background: #fff;
+        border: 1px solid #dfe8e1;
+        border-radius: 999px;
+        cursor: pointer;
+        font: inherit;
+        font-size: 10px;
+        line-height: 1.2;
+      }
+
+      .keyword-chip:hover {
+        border-color: #91b6a0;
+      }
+
+      .keyword-chip[aria-pressed="true"] {
+        color: #fff;
+        background: var(--green);
+        border-color: var(--green);
+      }
+
       .proxy-status {
         margin: 0;
         padding: 10px 20px;
@@ -304,6 +355,19 @@
         color: var(--muted);
         font-size: 12px;
         line-height: 1.5;
+      }
+
+      .card-keywords {
+        margin: 0 0 10px;
+      }
+
+      .card-keyword {
+        padding: 3px 7px;
+        color: #526158;
+        background: #eef4ef;
+        border-radius: 999px;
+        font-size: 10px;
+        line-height: 1.3;
       }
 
       .card-meta {
@@ -622,6 +686,13 @@
                 aria-label="ค้นหาด้วยชื่อสถานที่หรือที่อยู่"
               />
             </div>
+            <div class="keyword-filter">
+              <div class="keyword-filter-heading">
+                <strong>กรองตาม Keyword</strong>
+                <span id="keyword-filter-hint">เลือกได้หลายคำ</span>
+              </div>
+              <div class="keyword-chips" id="keyword-chips" role="group" aria-label="กรองสถานที่ตาม keyword"></div>
+            </div>
           </div>
           <p class="proxy-status" id="proxy-status" role="status" aria-live="polite">
             กำลังเชื่อมต่อบริการค้นหาสถานที่...
@@ -724,11 +795,75 @@
       const countElement = document.getElementById("result-count");
       const selectionHint = document.getElementById("selection-hint");
       const searchElement = document.getElementById("search");
+      const keywordChipsElement = document.getElementById("keyword-chips");
+      const keywordFilterHint = document.getElementById("keyword-filter-hint");
       const proxyUrl = "https://safeplace-shelter-proxy.first-pakin2013.workers.dev";
       let searchController = null;
       let searchTimer = null;
       let isSearching = false;
       let searchError = "";
+      const selectedKeywords = new Set();
+      const keywordRules = [
+        {
+          label: "ศูนย์พักพิง",
+          pattern: /ศูนย์พักพิง|ที่พักพิง|บ้านพักฉุกเฉิน|shelter|refuge/i,
+        },
+        {
+          label: "ภัยพิบัติ/ฉุกเฉิน",
+          pattern: /ผู้ประสบภัย|ภัยพิบัติ|ฉุกเฉิน|disaster|emergency/i,
+        },
+        {
+          label: "ช่วยเหลือ/สงเคราะห์",
+          pattern: /ช่วยเหลือ|สงเคราะห์|คุ้มครอง|มูลนิธิ|ไร้ที่พึ่ง|welfare|foundation|aid/i,
+        },
+        {
+          label: "การแพทย์/สุขภาพ",
+          pattern: /โรงพยาบาล|แพทย์|การแพทย์|พยาบาล|คลินิก|สุขภาพ|medical|hospital|clinic|health/i,
+        },
+        {
+          label: "ป้องกันภัย/ดับเพลิง",
+          pattern: /ป้องกันภัย|ดับเพลิง|สาธารณภัย|กู้ภัย|fire station|rescue/i,
+        },
+        {
+          label: "ตำรวจ/ความปลอดภัย",
+          pattern: /ตำรวจ|ความปลอดภัย|police|security/i,
+        },
+        {
+          label: "หน่วยงานราชการ",
+          pattern: /ราชการ|เทศบาล|อบต\\.?|อำเภอ|จังหวัด|ศาลากลาง|government|municipal/i,
+        },
+        {
+          label: "ผู้สูงอายุ/ผู้พิการ",
+          pattern: /ผู้สูงอายุ|คนชรา|ผู้พิการ|ผู้ป่วยติดเตียง|elderly|disability/i,
+        },
+        {
+          label: "สัตว์",
+          pattern: /สัตว์|animal|pet|dog|cat/i,
+        },
+        {
+          label: "ศาสนสถาน",
+          pattern: /วัด|มัสยิด|โบสถ์|ศาสนสถาน|temple|mosque|church/i,
+        },
+        {
+          label: "โรงเรียน/การศึกษา",
+          pattern: /โรงเรียน|มหาวิทยาลัย|วิทยาลัย|สถานศึกษา|education|school|university/i,
+        },
+        {
+          label: "ที่พัก",
+          pattern: /ที่พัก|โรงแรม|โฮสเทล|รีสอร์ท|หอพัก|hotel|hostel|accommodation/i,
+        },
+      ];
+
+      function getShelterKeywords(shelter) {
+        const searchableText = `${shelter.name} ${shelter.type}`.trim();
+        const matches = keywordRules
+          .filter((rule) => rule.pattern.test(searchableText))
+          .map((rule) => rule.label);
+        if (shelter.type && !matches.includes(shelter.type)) {
+          matches.push(shelter.type);
+        }
+        return matches;
+      }
 
       function createPopupContent(shelter) {
         const content = document.createElement("div");
@@ -740,8 +875,11 @@
         [
           shelter.address || "ไม่มีข้อมูลที่อยู่",
           shelter.type || "สถานะการเป็นศูนย์พักพิงยังไม่ยืนยัน",
+          shelter.keywords.length
+            ? `Keyword: ${shelter.keywords.join(", ")}`
+            : "",
           "ข้อมูลจาก Google Maps ผ่าน SerpApi — โปรดยืนยันก่อนเดินทาง",
-        ].forEach((text) => {
+        ].filter(Boolean).forEach((text) => {
           const line = document.createElement("div");
           line.className = "popup-line";
           line.textContent = text;
@@ -865,6 +1003,7 @@
         searchController = controller;
         isSearching = true;
         searchError = "";
+        selectedKeywords.clear();
         shelters = [];
         markers.clear();
         markerLayer.clearLayers();
@@ -889,7 +1028,11 @@
           }
           shelters = result.shelters
             .map(normalizeShelterResult)
-            .filter(Boolean);
+            .filter(Boolean)
+            .map((shelter) => ({
+              ...shelter,
+              keywords: getShelterKeywords(shelter),
+            }));
           proxyStatus.textContent = `เชื่อมต่อแล้ว · พบ ${shelters.length} แห่ง`;
           connectionBadgeText.textContent = "ผลค้นหาจาก Google Maps";
         } catch (error) {
@@ -1085,14 +1228,72 @@
         }).bindPopup(createPopupContent(shelter));
       }
 
+      function renderKeywordFilters() {
+        const counts = new Map();
+        shelters.forEach((shelter) => {
+          shelter.keywords.forEach((keyword) => {
+            counts.set(keyword, (counts.get(keyword) || 0) + 1);
+          });
+        });
+
+        const availableKeywords = [...counts.keys()].sort((first, second) =>
+          first.localeCompare(second, "th")
+        );
+        keywordChipsElement.replaceChildren();
+        keywordFilterHint.textContent = availableKeywords.length
+          ? `เลือกได้หลายคำ · ${selectedKeywords.size ? `เลือก ${selectedKeywords.size}` : "ทั้งหมด"}`
+          : "ไม่มี Keyword";
+
+        const choices = [
+          { label: "ทั้งหมด", value: "", count: shelters.length },
+          ...availableKeywords.map((keyword) => ({
+            label: keyword,
+            value: keyword,
+            count: counts.get(keyword),
+          })),
+        ];
+
+        choices.forEach((choice) => {
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "keyword-chip";
+          chip.setAttribute(
+            "aria-pressed",
+            String(
+              choice.value
+                ? selectedKeywords.has(choice.value)
+                : selectedKeywords.size === 0
+            )
+          );
+          chip.textContent = choice.value
+            ? `${choice.label} (${choice.count})`
+            : `${choice.label} (${choice.count})`;
+          chip.addEventListener("click", () => {
+            if (!choice.value) {
+              selectedKeywords.clear();
+            } else if (selectedKeywords.has(choice.value)) {
+              selectedKeywords.delete(choice.value);
+            } else {
+              selectedKeywords.add(choice.value);
+            }
+            renderShelters();
+          });
+          keywordChipsElement.append(chip);
+        });
+      }
+
       function renderShelters() {
+        renderKeywordFilters();
         const query = searchElement.value.trim().toLocaleLowerCase("th");
         const visible = shelters.filter((shelter) => {
           const matchesQuery =
             `${shelter.name} ${shelter.address} ${shelter.type}`
               .toLocaleLowerCase("th")
               .includes(query);
-          return matchesQuery;
+          const matchesKeyword =
+            selectedKeywords.size === 0 ||
+            shelter.keywords.some((keyword) => selectedKeywords.has(keyword));
+          return matchesQuery && matchesKeyword;
         })
           .map((shelter) => ({
             ...shelter,
@@ -1122,12 +1323,24 @@
           const address = document.createElement("p");
           address.className = "card-address";
           address.textContent = shelter.address || "ไม่มีข้อมูลที่อยู่";
+          const keywords = document.createElement("div");
+          keywords.className = "card-keywords";
+          shelter.keywords.forEach((keyword) => {
+            const tag = document.createElement("span");
+            tag.className = "card-keyword";
+            tag.textContent = keyword;
+            keywords.append(tag);
+          });
           const meta = document.createElement("div");
           meta.className = "card-meta";
           const distance = document.createElement("span");
           distance.textContent = `ห่าง ${formatDistance(shelter.distanceMeters)} (เส้นตรง)`;
           meta.append(distance);
-          card.append(titleRow, address, meta);
+          card.append(titleRow, address);
+          if (shelter.keywords.length) {
+            card.append(keywords);
+          }
+          card.append(meta);
           card.addEventListener("click", () => {
             map.setView([shelter.lat, shelter.lng], 15);
             markers.get(shelter.id).openPopup();
