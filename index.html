@@ -129,9 +129,9 @@
         gap: 8px;
         align-items: center;
         padding: 9px 13px;
-        color: #256a49;
-        background: #e7f5eb;
-        border: 1px solid #d5ecdc;
+        color: #805b1d;
+        background: #fff5df;
+        border: 1px solid #f0e2bd;
         border-radius: 999px;
         font-size: 12px;
         font-weight: 700;
@@ -140,9 +140,9 @@
       .live-dot {
         width: 8px;
         height: 8px;
-        background: #40aa68;
+        background: #d39a32;
         border-radius: 50%;
-        box-shadow: 0 0 0 3px #ccebd4;
+        box-shadow: 0 0 0 3px #f8e8c3;
       }
 
       .workspace {
@@ -620,7 +620,7 @@
         </div>
         <div class="live-badge">
           <span class="live-dot" aria-hidden="true"></span>
-          แสดงข้อมูลตัวอย่าง
+          ไม่มีข้อมูลศูนย์พักพิงที่ยืนยันได้
         </div>
       </section>
 
@@ -654,11 +654,11 @@
             </div>
           </div>
           <div class="list-heading">
-            <h2>ใกล้จุดที่เลือก</h2>
+            <h2>ศูนย์พักพิงใกล้จุดที่เลือก</h2>
             <span class="result-count" id="result-count" aria-live="polite"></span>
           </div>
           <p class="selection-hint" id="selection-hint">
-            คลิกแผนที่หรือเลื่อนหมุดเพื่อเลือกตำแหน่ง แล้วดูศูนย์พักพิงใกล้ที่สุด 5 แห่ง
+            คลิกแผนที่หรือเลื่อนหมุดเพื่อเลือกตำแหน่ง
           </p>
           <div class="shelter-list" id="shelter-list"></div>
         </aside>
@@ -681,10 +681,10 @@
       <aside class="notice" role="note">
         <span class="notice-icon" aria-hidden="true">ⓘ</span>
         <span>
-          <strong>ตัวอย่างเพื่อการพัฒนาเท่านั้น</strong>
-          ตำแหน่งและสถานะในหน้านี้เป็นข้อมูลสมมติ ไม่ใช่ประกาศสถานที่หลบภัยจริง
+          <strong>ยังไม่มีแหล่งข้อมูลศูนย์พักพิงที่ยืนยันได้สำหรับกรุงเทพฯ</strong>
+          ซ่อนสถานที่ตัวอย่างทั้งหมดแล้ว จึงยังไม่สามารถแนะนำ 5 แห่งได้
+          โปรดตรวจสอบกับหน่วยงานในพื้นที่ก่อนเดินทาง
           OSRM demo server เหมาะสำหรับทดลองเท่านั้นและอาจจำกัดการใช้งาน
-          โปรดตรวจสอบข้อมูลและเส้นทางกับหน่วยงานในพื้นที่ก่อนเดินทาง
           เบราว์เซอร์จะถามสิทธิ์ตำแหน่งเมื่อกดปุ่มระบุตำแหน่ง
           หากขอเส้นทาง พิกัดของคุณจะถูกส่งไปยัง OSRM demo server เพื่อคำนวณเส้นทาง
         </span>
@@ -702,63 +702,7 @@
       crossorigin=""
     ></script>
     <script>
-      const shelters = [
-        {
-          id: "shelter-001",
-          name: "ศูนย์พักพิงชุมชนสวนลุมพินี",
-          district: "เขตปทุมวัน",
-          address: "ถนนพระรามที่ 4 แขวงลุมพินี",
-          lat: 13.7308,
-          lng: 100.5418,
-          status: "open",
-          capacity: "รองรับได้อีก 120 คน",
-          updated: "อัปเดต 15 นาทีที่แล้ว",
-        },
-        {
-          id: "shelter-002",
-          name: "อาคารช่วยเหลือเขตดินแดง",
-          district: "เขตดินแดง",
-          address: "ถนนมิตรไมตรี แขวงดินแดง",
-          lat: 13.7696,
-          lng: 100.5528,
-          status: "open",
-          capacity: "รองรับได้อีก 85 คน",
-          updated: "อัปเดต 30 นาทีที่แล้ว",
-        },
-        {
-          id: "shelter-003",
-          name: "ศูนย์ชุมชนบางกอกน้อย",
-          district: "เขตบางกอกน้อย",
-          address: "ถนนอรุณอมรินทร์ แขวงศิริราช",
-          lat: 13.7582,
-          lng: 100.4776,
-          status: "open",
-          capacity: "รองรับได้อีก 42 คน",
-          updated: "อัปเดต 20 นาทีที่แล้ว",
-        },
-        {
-          id: "shelter-004",
-          name: "โรงเรียนชุมชนคลองเตย",
-          district: "เขตคลองเตย",
-          address: "ถนนอาจณรงค์ แขวงคลองเตย",
-          lat: 13.7087,
-          lng: 100.5592,
-          status: "full",
-          capacity: "ขณะนี้เต็มแล้ว",
-          updated: "อัปเดต 5 นาทีที่แล้ว",
-        },
-        {
-          id: "shelter-005",
-          name: "ศูนย์ประสานงานบางซื่อ",
-          district: "เขตบางซื่อ",
-          address: "ถนนประชาชื่น แขวงบางซื่อ",
-          lat: 13.8067,
-          lng: 100.537,
-          status: "open",
-          capacity: "รองรับได้อีก 60 คน",
-          updated: "อัปเดต 1 ชั่วโมงที่แล้ว",
-        },
-      ];
+      const shelters = [];
 
       const routePanel = document.getElementById("route-panel");
       const routeSummary = document.getElementById("route-summary");
@@ -1073,7 +1017,10 @@
         if (visible.length === 0) {
           const empty = document.createElement("p");
           empty.className = "empty-state";
-          empty.textContent = "ไม่พบสถานที่ที่ตรงกับการค้นหา";
+          empty.textContent =
+            shelters.length === 0
+              ? "ยังไม่มีข้อมูลสถานที่หลบภัยจริงที่ตรวจสอบแหล่งที่มาและสถานะได้"
+              : "ไม่พบสถานที่ที่ตรงกับการค้นหา";
           listElement.append(empty);
         }
       }
