@@ -207,44 +207,12 @@
         box-shadow: 0 0 0 3px rgb(23 107 81 / 10%);
       }
 
-      .proxy-settings {
-        padding: 14px 20px 12px;
+      .proxy-status {
+        margin: 0;
+        padding: 10px 20px;
+        color: var(--muted);
         background: #f8faf8;
         border-bottom: 1px solid var(--line);
-      }
-
-      .proxy-entry {
-        display: flex;
-        gap: 7px;
-      }
-
-      .proxy-entry input {
-        width: 100%;
-        min-width: 0;
-        height: 38px;
-        padding: 0 9px;
-        color: #24352c;
-        background: #fff;
-        border: 1px solid #dce5de;
-        border-radius: 8px;
-        font-size: 11px;
-      }
-
-      .proxy-entry button {
-        flex: 0 0 auto;
-        padding: 0 11px;
-        color: #fff;
-        background: var(--green);
-        border: 0;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 11px;
-        font-weight: 700;
-      }
-
-      .proxy-status {
-        margin: 7px 0 0;
-        color: var(--muted);
         font-size: 11px;
         line-height: 1.45;
       }
@@ -549,8 +517,8 @@
           grid-template-columns: 1fr;
         }
 
-        .proxy-settings {
-          padding: 13px 16px;
+        .proxy-status {
+          padding: 10px 16px;
         }
 
         .sidebar {
@@ -655,23 +623,9 @@
               />
             </div>
           </div>
-          <form class="proxy-settings" id="proxy-form">
-            <label class="search-label" for="proxy-url">URL ของ Worker proxy</label>
-            <div class="proxy-entry">
-              <input
-                id="proxy-url"
-                type="url"
-                inputmode="url"
-                placeholder="https://ชื่อ-worker.username.workers.dev"
-                autocomplete="url"
-                required
-              />
-              <button type="submit">เชื่อมต่อ</button>
-            </div>
-            <p class="proxy-status" id="proxy-status" role="status" aria-live="polite">
-              Worker URL ยังไม่ได้ตั้งค่า
-            </p>
-          </form>
+          <p class="proxy-status" id="proxy-status" role="status" aria-live="polite">
+            กำลังเชื่อมต่อบริการค้นหาสถานที่...
+          </p>
           <div class="list-heading">
             <h2>ศูนย์พักพิงใกล้จุดที่เลือก</h2>
             <span class="result-count" id="result-count" aria-live="polite"></span>
@@ -727,8 +681,6 @@
       const routePanel = document.getElementById("route-panel");
       const routeSummary = document.getElementById("route-summary");
       const routeSteps = document.getElementById("route-steps");
-      const proxyForm = document.getElementById("proxy-form");
-      const proxyUrlInput = document.getElementById("proxy-url");
       const proxyStatus = document.getElementById("proxy-status");
       const connectionBadgeText = document.getElementById("connection-badge-text");
       const markers = new Map();
@@ -771,8 +723,7 @@
       const countElement = document.getElementById("result-count");
       const selectionHint = document.getElementById("selection-hint");
       const searchElement = document.getElementById("search");
-      const PROXY_STORAGE_KEY = "safeplace.shelterProxyUrl";
-      let proxyUrl = "";
+      const proxyUrl = "https://safeplace-shelter-proxy.first-pakin2013.workers.dev";
       let searchController = null;
       let searchTimer = null;
       let isSearching = false;
@@ -968,32 +919,6 @@
         }
         searchTimer = window.setTimeout(loadNearbyShelters, 350);
       }
-
-      proxyForm.addEventListener("submit", (event) => {
-        event.preventDefault();
-        let endpoint;
-        try {
-          endpoint = new URL(proxyUrlInput.value.trim());
-        } catch (error) {
-          proxyStatus.textContent = "กรุณากรอก URL ของ Worker ให้ถูกต้อง";
-          return;
-        }
-        if (endpoint.protocol !== "https:") {
-          proxyStatus.textContent = "Worker URL ต้องขึ้นต้นด้วย https://";
-          return;
-        }
-        proxyUrl = endpoint.origin + endpoint.pathname.replace(/\/+$/, "");
-        try {
-          localStorage.setItem(PROXY_STORAGE_KEY, proxyUrl);
-        } catch (error) {
-          proxyUrl = "";
-          proxyStatus.textContent = "บันทึก Worker URL ในเบราว์เซอร์ไม่ได้";
-          console.error("Could not save the Worker URL in local storage.", error);
-          return;
-        }
-        proxyUrlInput.value = proxyUrl;
-        loadNearbyShelters();
-      });
 
       function setSelectedLocation(location, { zoom = false } = {}) {
         if (
@@ -1227,9 +1152,7 @@
           empty.className = "empty-state";
           empty.textContent = searchError
             ? searchError
-            : !proxyUrl
-              ? "ตั้งค่า URL ของ Cloudflare Worker ด้านบนเพื่อค้นหาสถานที่"
-              : isSearching
+            : isSearching
                 ? "กำลังค้นหาสถานที่ใกล้จุดที่เลือก..."
                 : shelters.length === 0
                   ? "ไม่พบผลการค้นหาใกล้ตำแหน่งนี้"
@@ -1245,22 +1168,7 @@
       });
       renderShelters();
 
-      try {
-        const savedProxyUrl = localStorage.getItem(PROXY_STORAGE_KEY);
-        if (savedProxyUrl) {
-          const parsedProxyUrl = new URL(savedProxyUrl);
-          if (parsedProxyUrl.protocol === "https:") {
-            proxyUrl = parsedProxyUrl.origin + parsedProxyUrl.pathname.replace(/\/+$/, "");
-            proxyUrlInput.value = proxyUrl;
-            loadNearbyShelters();
-          } else {
-            proxyStatus.textContent = "URL ที่บันทึกไว้ไม่ใช่ HTTPS กรุณาตั้งค่าใหม่";
-          }
-        }
-      } catch (error) {
-        proxyStatus.textContent = "อ่าน Worker URL ที่บันทึกไว้ไม่ได้";
-        console.error("Could not load the saved Worker URL.", error);
-      }
+      loadNearbyShelters();
 
       function initializeLocationControl() {
         const locateButton = document.createElement("button");
