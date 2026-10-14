@@ -207,32 +207,46 @@
         box-shadow: 0 0 0 3px rgb(23 107 81 / 10%);
       }
 
-      .filters {
+      .proxy-settings {
+        padding: 14px 20px 12px;
+        background: #f8faf8;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .proxy-entry {
         display: flex;
-        gap: 8px;
-        margin-top: 13px;
+        gap: 7px;
       }
 
-      .filter-button {
-        min-height: 33px;
-        padding: 0 12px;
-        color: #5f6d65;
-        background: white;
-        border: 1px solid #e4eae5;
-        border-radius: 999px;
-        cursor: pointer;
-        font-size: 12px;
-        transition: all 150ms;
+      .proxy-entry input {
+        width: 100%;
+        min-width: 0;
+        height: 38px;
+        padding: 0 9px;
+        color: #24352c;
+        background: #fff;
+        border: 1px solid #dce5de;
+        border-radius: 8px;
+        font-size: 11px;
       }
 
-      .filter-button:hover {
-        border-color: #a7c7b5;
-      }
-
-      .filter-button.active {
-        color: white;
+      .proxy-entry button {
+        flex: 0 0 auto;
+        padding: 0 11px;
+        color: #fff;
         background: var(--green);
-        border-color: var(--green);
+        border: 0;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .proxy-status {
+        margin: 7px 0 0;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.45;
       }
 
       .list-heading {
@@ -302,8 +316,8 @@
         gap: 5px;
         align-items: center;
         padding: 4px 7px;
-        color: #277249;
-        background: #eaf6ee;
+        color: #85631f;
+        background: #fff4df;
         border-radius: 999px;
         font-size: 10px;
         font-weight: 700;
@@ -315,11 +329,6 @@
         background: currentColor;
         border-radius: 50%;
         content: "";
-      }
-
-      .status.full {
-        color: #a46a20;
-        background: #fff4df;
       }
 
       .card-address {
@@ -540,6 +549,10 @@
           grid-template-columns: 1fr;
         }
 
+        .proxy-settings {
+          padding: 13px 16px;
+        }
+
         .sidebar {
           min-height: 0;
           border-right: 0;
@@ -618,9 +631,9 @@
             แตะรายการเพื่อดูตำแหน่งและรายละเอียด
           </p>
         </div>
-        <div class="live-badge">
+        <div class="live-badge" id="connection-badge">
           <span class="live-dot" aria-hidden="true"></span>
-          ไม่มีข้อมูลศูนย์พักพิงที่ยืนยันได้
+          <span id="connection-badge-text">ตั้งค่า Worker เพื่อค้นหา</span>
         </div>
       </section>
 
@@ -636,29 +649,35 @@
               <input
                 id="search"
                 type="search"
-                placeholder="ชื่อสถานที่หรือเขต..."
+                placeholder="ชื่อสถานที่หรือที่อยู่..."
                 autocomplete="off"
-                aria-label="ค้นหาด้วยชื่อสถานที่หรือเขต"
+                aria-label="ค้นหาด้วยชื่อสถานที่หรือที่อยู่"
               />
             </div>
-            <div class="filters" role="group" aria-label="กรองสถานะ">
-              <button class="filter-button active" type="button" data-filter="all" aria-pressed="true">
-                ทั้งหมด
-              </button>
-              <button class="filter-button" type="button" data-filter="open" aria-pressed="false">
-                ยังรองรับ
-              </button>
-              <button class="filter-button" type="button" data-filter="full" aria-pressed="false">
-                เต็มแล้ว
-              </button>
-            </div>
           </div>
+          <form class="proxy-settings" id="proxy-form">
+            <label class="search-label" for="proxy-url">URL ของ Worker proxy</label>
+            <div class="proxy-entry">
+              <input
+                id="proxy-url"
+                type="url"
+                inputmode="url"
+                placeholder="https://ชื่อ-worker.username.workers.dev"
+                autocomplete="url"
+                required
+              />
+              <button type="submit">เชื่อมต่อ</button>
+            </div>
+            <p class="proxy-status" id="proxy-status" role="status" aria-live="polite">
+              Worker URL ยังไม่ได้ตั้งค่า
+            </p>
+          </form>
           <div class="list-heading">
             <h2>ศูนย์พักพิงใกล้จุดที่เลือก</h2>
             <span class="result-count" id="result-count" aria-live="polite"></span>
           </div>
           <p class="selection-hint" id="selection-hint">
-            คลิกแผนที่หรือเลื่อนหมุดเพื่อเลือกตำแหน่ง
+            คลิกแผนที่หรือเลื่อนหมุดเพื่อค้นหาศูนย์ใกล้ที่สุดไม่เกิน 5 แห่ง
           </p>
           <div class="shelter-list" id="shelter-list"></div>
         </aside>
@@ -681,11 +700,11 @@
       <aside class="notice" role="note">
         <span class="notice-icon" aria-hidden="true">ⓘ</span>
         <span>
-          <strong>ยังไม่มีแหล่งข้อมูลศูนย์พักพิงที่ยืนยันได้สำหรับกรุงเทพฯ</strong>
-          ซ่อนสถานที่ตัวอย่างทั้งหมดแล้ว จึงยังไม่สามารถแนะนำ 5 แห่งได้
-          โปรดตรวจสอบกับหน่วยงานในพื้นที่ก่อนเดินทาง
+          ผลจาก Google Maps อาจไม่ใช่ศูนย์อพยพทางการหรือยังเปิดให้บริการ
+          โปรดยืนยันข้อมูลกับหน่วยงานในพื้นที่ก่อนเดินทาง
           OSRM demo server เหมาะสำหรับทดลองเท่านั้นและอาจจำกัดการใช้งาน
           เบราว์เซอร์จะถามสิทธิ์ตำแหน่งเมื่อกดปุ่มระบุตำแหน่ง
+          การค้นหาส่งพิกัดจุดที่เลือกผ่าน Worker ไปยัง SerpApi/Google Maps
           หากขอเส้นทาง พิกัดของคุณจะถูกส่งไปยัง OSRM demo server เพื่อคำนวณเส้นทาง
         </span>
       </aside>
@@ -693,7 +712,8 @@
 
     <footer>
       แผนที่ © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>
-      · เส้นทางโดย OSRM demo · สร้างด้วย <a href="https://leafletjs.com/" target="_blank" rel="noreferrer">Leaflet</a>
+      · สถานที่จาก SerpApi/Google Maps · เส้นทางโดย OSRM demo ·
+      สร้างด้วย <a href="https://leafletjs.com/" target="_blank" rel="noreferrer">Leaflet</a>
     </footer>
 
     <script
@@ -702,11 +722,15 @@
       crossorigin=""
     ></script>
     <script>
-      const shelters = [];
+      let shelters = [];
 
       const routePanel = document.getElementById("route-panel");
       const routeSummary = document.getElementById("route-summary");
       const routeSteps = document.getElementById("route-steps");
+      const proxyForm = document.getElementById("proxy-form");
+      const proxyUrlInput = document.getElementById("proxy-url");
+      const proxyStatus = document.getElementById("proxy-status");
+      const connectionBadgeText = document.getElementById("connection-badge-text");
       const markers = new Map();
       const markerLayer = L.featureGroup();
       const routeLayer = L.geoJSON(null, {
@@ -747,7 +771,12 @@
       const countElement = document.getElementById("result-count");
       const selectionHint = document.getElementById("selection-hint");
       const searchElement = document.getElementById("search");
-      let activeFilter = "all";
+      const PROXY_STORAGE_KEY = "safeplace.shelterProxyUrl";
+      let proxyUrl = "";
+      let searchController = null;
+      let searchTimer = null;
+      let isSearching = false;
+      let searchError = "";
 
       function createPopupContent(shelter) {
         const content = document.createElement("div");
@@ -757,15 +786,24 @@
         content.append(title);
 
         [
-          `${shelter.district} · ${shelter.address}`,
-          `${shelter.status === "open" ? "ยังรองรับ" : "เต็มแล้ว"} · ${shelter.capacity}`,
-          shelter.updated,
+          shelter.address || "ไม่มีข้อมูลที่อยู่",
+          shelter.type || "สถานะการเป็นศูนย์พักพิงยังไม่ยืนยัน",
+          "ข้อมูลจาก Google Maps ผ่าน SerpApi — โปรดยืนยันก่อนเดินทาง",
         ].forEach((text) => {
           const line = document.createElement("div");
           line.className = "popup-line";
           line.textContent = text;
           content.append(line);
         });
+
+        if (shelter.mapUrl) {
+          const mapLink = document.createElement("a");
+          mapLink.href = shelter.mapUrl;
+          mapLink.target = "_blank";
+          mapLink.rel = "noreferrer";
+          mapLink.textContent = "เปิดใน Google Maps";
+          content.append(mapLink);
+        }
 
         const directions = document.createElement("button");
         directions.className = "route-action";
@@ -804,6 +842,159 @@
         return 2 * earthRadiusMeters * Math.asin(Math.sqrt(haversine));
       }
 
+      function buildShelterApiUrl() {
+        const endpoint = new URL(proxyUrl);
+        const path = endpoint.pathname.replace(/\/+$/, "");
+        endpoint.pathname = path.endsWith("/api/shelters")
+          ? path
+          : `${path}/api/shelters`;
+        endpoint.search = "";
+        endpoint.searchParams.set("lat", selectedLocation.lat.toFixed(5));
+        endpoint.searchParams.set("lng", selectedLocation.lng.toFixed(5));
+        return endpoint;
+      }
+
+      function normalizeShelterResult(item, index) {
+        if (!item || typeof item !== "object") {
+          return null;
+        }
+        const lat = Number(item.lat);
+        const lng = Number(item.lng);
+        const name = typeof item.name === "string" ? item.name.trim() : "";
+        if (
+          !name ||
+          item.lat === null ||
+          item.lng === null ||
+          (typeof item.lat === "string" && item.lat.trim() === "") ||
+          (typeof item.lng === "string" && item.lng.trim() === "") ||
+          !Number.isFinite(lat) ||
+          !Number.isFinite(lng) ||
+          lat < -90 ||
+          lat > 90 ||
+          lng < -180 ||
+          lng > 180
+        ) {
+          return null;
+        }
+        let mapUrl = "";
+        if (typeof item.mapUrl === "string") {
+          try {
+            const parsedMapUrl = new URL(item.mapUrl);
+            if (
+              parsedMapUrl.protocol === "https:" &&
+              ["www.google.com", "maps.google.com"].includes(parsedMapUrl.hostname) &&
+              parsedMapUrl.pathname.startsWith("/maps")
+            ) {
+              mapUrl = parsedMapUrl.href;
+            }
+          } catch (error) {
+            console.warn("Ignoring an invalid Google Maps result link.", error);
+          }
+        }
+        return {
+          id: typeof item.id === "string" ? item.id : `${name}-${lat}-${lng}-${index}`,
+          name,
+          address: typeof item.address === "string" ? item.address : "",
+          type: typeof item.type === "string" ? item.type : "",
+          lat,
+          lng,
+          mapUrl,
+        };
+      }
+
+      async function loadNearbyShelters() {
+        if (!proxyUrl) {
+          return;
+        }
+        if (searchController) {
+          searchController.abort();
+        }
+        const controller = new AbortController();
+        searchController = controller;
+        isSearching = true;
+        searchError = "";
+        shelters = [];
+        markers.clear();
+        markerLayer.clearLayers();
+        proxyStatus.textContent = "กำลังค้นหาผลลัพธ์ใกล้ตำแหน่งที่เลือก...";
+        connectionBadgeText.textContent = "กำลังค้นหา";
+        renderShelters();
+
+        try {
+          const response = await fetch(buildShelterApiUrl(), {
+            signal: controller.signal,
+          });
+          const result = await response.json();
+          if (!response.ok) {
+            throw new Error(
+              typeof result.error === "string"
+                ? result.error
+                : `Worker ตอบกลับด้วยสถานะ ${response.status}`
+            );
+          }
+          if (!Array.isArray(result.shelters)) {
+            throw new Error("รูปแบบข้อมูลจาก Worker ไม่ถูกต้อง");
+          }
+          shelters = result.shelters
+            .map(normalizeShelterResult)
+            .filter(Boolean)
+            .slice(0, 5);
+          proxyStatus.textContent = `เชื่อมต่อแล้ว · พบ ${shelters.length} แห่ง`;
+          connectionBadgeText.textContent = "ผลค้นหาจาก Google Maps";
+        } catch (error) {
+          if (error.name === "AbortError") {
+            return;
+          }
+          searchError =
+            error instanceof TypeError
+              ? "เชื่อมต่อ Worker ไม่สำเร็จ ตรวจ URL, CORS และการ deploy"
+              : error instanceof Error
+                ? `ค้นหาไม่สำเร็จ: ${error.message}`
+                : "ค้นหาไม่สำเร็จ กรุณาตรวจการเชื่อมต่อ Worker";
+          proxyStatus.textContent = searchError;
+          connectionBadgeText.textContent = "Worker มีปัญหา";
+        } finally {
+          if (searchController === controller) {
+            searchController = null;
+            isSearching = false;
+            renderShelters();
+          }
+        }
+      }
+
+      function scheduleShelterSearch() {
+        if (searchTimer) {
+          window.clearTimeout(searchTimer);
+        }
+        searchTimer = window.setTimeout(loadNearbyShelters, 350);
+      }
+
+      proxyForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        let endpoint;
+        try {
+          endpoint = new URL(proxyUrlInput.value.trim());
+        } catch (error) {
+          proxyStatus.textContent = "กรุณากรอก URL ของ Worker ให้ถูกต้อง";
+          return;
+        }
+        if (endpoint.protocol !== "https:") {
+          proxyStatus.textContent = "Worker URL ต้องขึ้นต้นด้วย https://";
+          return;
+        }
+        proxyUrl = endpoint.origin + endpoint.pathname.replace(/\/+$/, "");
+        try {
+          localStorage.setItem(PROXY_STORAGE_KEY, proxyUrl);
+        } catch (error) {
+          proxyUrl = "";
+          proxyStatus.textContent = "บันทึก Worker URL ในเบราว์เซอร์ไม่ได้";
+          console.error("Could not save the Worker URL in local storage.", error);
+          return;
+        }
+        proxyUrlInput.value = proxyUrl;
+        loadNearbyShelters();
+      });
+
       function setSelectedLocation(location, { zoom = false } = {}) {
         if (
           location.lat !== selectedLocation.lat ||
@@ -811,10 +1002,24 @@
         ) {
           routeLayer.clearLayers();
           routePanel.hidden = true;
+          if (searchController) {
+            searchController.abort();
+            searchController = null;
+          }
+          shelters = [];
+          markers.clear();
+          markerLayer.clearLayers();
+          searchError = "";
+          isSearching = Boolean(proxyUrl);
+          if (proxyUrl) {
+            proxyStatus.textContent = "กำลังค้นหาผลลัพธ์ใกล้ตำแหน่งที่เลือก...";
+            connectionBadgeText.textContent = "กำลังค้นหา";
+          }
           if (activeRouteController) {
             activeRouteController.abort();
             activeRouteController = null;
           }
+          scheduleShelterSearch();
         }
         selectedLocation = L.latLng(location.lat, location.lng);
         selectedLocationMarker.setLatLng(selectedLocation);
@@ -944,7 +1149,7 @@
       function createMarker(shelter) {
         const icon = L.divIcon({
           className: "",
-          html: `<div class="custom-marker ${shelter.status === "full" ? "full" : ""}"><span>+</span></div>`,
+          html: '<div class="custom-marker"><span>+</span></div>',
           iconSize: [38, 38],
           iconAnchor: [19, 35],
           popupAnchor: [0, -32],
@@ -959,11 +1164,10 @@
         const query = searchElement.value.trim().toLocaleLowerCase("th");
         const visible = shelters.filter((shelter) => {
           const matchesQuery =
-            `${shelter.name} ${shelter.district} ${shelter.address}`
+            `${shelter.name} ${shelter.address} ${shelter.type}`
               .toLocaleLowerCase("th")
               .includes(query);
-          const matchesStatus = activeFilter === "all" || shelter.status === activeFilter;
-          return matchesQuery && matchesStatus;
+          return matchesQuery;
         })
           .map((shelter) => ({
             ...shelter,
@@ -987,22 +1191,18 @@
           title.className = "card-title";
           title.textContent = shelter.name;
           const status = document.createElement("span");
-          status.className = `status ${shelter.status === "full" ? "full" : ""}`;
-          status.textContent = shelter.status === "open" ? "ยังรองรับ" : "เต็มแล้ว";
+          status.className = "status";
+          status.textContent = "ต้องยืนยัน";
           titleRow.append(title, status);
 
           const address = document.createElement("p");
           address.className = "card-address";
-          address.textContent = `${shelter.district} · ${shelter.address}`;
+          address.textContent = shelter.address || "ไม่มีข้อมูลที่อยู่";
           const meta = document.createElement("div");
           meta.className = "card-meta";
-          const capacity = document.createElement("span");
-          capacity.textContent = shelter.capacity;
-          const updated = document.createElement("span");
-          updated.textContent = shelter.updated;
           const distance = document.createElement("span");
           distance.textContent = `ห่าง ${formatDistance(shelter.distanceMeters)} (เส้นตรง)`;
-          meta.append(distance, capacity);
+          meta.append(distance);
           card.append(titleRow, address, meta);
           card.addEventListener("click", () => {
             map.setView([shelter.lat, shelter.lng], 15);
@@ -1025,25 +1225,18 @@
         if (visible.length === 0) {
           const empty = document.createElement("p");
           empty.className = "empty-state";
-          empty.textContent =
-            shelters.length === 0
-              ? "ยังไม่มีข้อมูลสถานที่หลบภัยจริงที่ตรวจสอบแหล่งที่มาและสถานะได้"
-              : "ไม่พบสถานที่ที่ตรงกับการค้นหา";
+          empty.textContent = searchError
+            ? searchError
+            : !proxyUrl
+              ? "ตั้งค่า URL ของ Cloudflare Worker ด้านบนเพื่อค้นหาสถานที่"
+              : isSearching
+                ? "กำลังค้นหาสถานที่ใกล้จุดที่เลือก..."
+                : shelters.length === 0
+                  ? "ไม่พบผลการค้นหาใกล้ตำแหน่งนี้"
+                  : "ไม่พบสถานที่ที่ตรงกับการค้นหา";
           listElement.append(empty);
         }
       }
-
-      document.querySelectorAll(".filter-button").forEach((button) => {
-        button.addEventListener("click", () => {
-          activeFilter = button.dataset.filter;
-          document.querySelectorAll(".filter-button").forEach((item) => {
-            const selected = item === button;
-            item.classList.toggle("active", selected);
-            item.setAttribute("aria-pressed", String(selected));
-          });
-          renderShelters();
-        });
-      });
 
       searchElement.addEventListener("input", renderShelters);
       map.on("click", (event) => setSelectedLocation(event.latlng));
@@ -1051,6 +1244,23 @@
         setSelectedLocation(event.target.getLatLng());
       });
       renderShelters();
+
+      try {
+        const savedProxyUrl = localStorage.getItem(PROXY_STORAGE_KEY);
+        if (savedProxyUrl) {
+          const parsedProxyUrl = new URL(savedProxyUrl);
+          if (parsedProxyUrl.protocol === "https:") {
+            proxyUrl = parsedProxyUrl.origin + parsedProxyUrl.pathname.replace(/\/+$/, "");
+            proxyUrlInput.value = proxyUrl;
+            loadNearbyShelters();
+          } else {
+            proxyStatus.textContent = "URL ที่บันทึกไว้ไม่ใช่ HTTPS กรุณาตั้งค่าใหม่";
+          }
+        }
+      } catch (error) {
+        proxyStatus.textContent = "อ่าน Worker URL ที่บันทึกไว้ไม่ได้";
+        console.error("Could not load the saved Worker URL.", error);
+      }
 
       function initializeLocationControl() {
         const locateButton = document.createElement("button");
